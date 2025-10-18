@@ -1,4 +1,6 @@
+using Avalonia.Media;
 using Avalonia.Platform;
+using SkiaSharp;
 
 namespace Avalonia.Skia
 {
@@ -22,8 +24,13 @@ namespace Avalonia.Skia
             AvaloniaLocator.CurrentMutable
                 .Bind<IPlatformRenderInterface>().ToConstant(renderInterface)
                 .Bind<IFontManagerImpl>().ToConstant(new FontManagerImpl())
-                .Bind<ITextShaperImpl>().ToConstant(new TextShaperImpl());
+                .Bind<ITextShaperImpl>().ToConstant(ShapingInterface.ShaperImpl);
         }
+
+        internal static IPlatformTextShapingInterface ShapingInterface = Harfbuzz.HarfbuzzTextShaping.Create();
+
+        internal static IGlyphTypeface CreateGlyphTypeface(SKTypeface typeface, FontSimulations simulations) =>
+            ShapingInterface.CreateTypeface(new SKTypefaceWrapper(typeface, simulations));
 
         /// <summary>
         /// Default DPI.
