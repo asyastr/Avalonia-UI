@@ -49,7 +49,7 @@ namespace Avalonia.Markup.Xaml.XamlIl.CompilerExtensions.Transformers
                     emitter
                         .Stloc(value.Local)
                         .Ldloc(value.Local);
-                emitter.EmitCall(Types.SetClassesMethod, true);
+                emitter.EmitCall(Types.SetClassesMethod);
             }
         }
 
