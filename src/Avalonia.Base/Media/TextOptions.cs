@@ -1,18 +1,21 @@
 ﻿namespace Avalonia.Media
 {
     /// <summary>
-    /// Provides options for configuring text rendering behavior, including rendering mode, hinting, and baseline
-    /// alignment.
+    /// Provides options for controlling text rendering behavior, including rendering mode, hinting mode, and baseline
+    /// pixel alignment. Used to configure how text appears within visual elements.
     /// </summary>
-    /// <remarks>Use this type to specify how text should be rendered. The options
-    /// control aspects such as glyph rendering quality, clarity, and alignment, which can affect the appearance and
-    /// readability of text across different devices and display settings.</remarks>
+    /// <remarks>TextOptions encapsulates settings that influence the clarity, sharpness, and positioning of
+    /// rendered text. These options can be applied to visual elements to customize text appearance for different
+    /// display scenarios, such as optimizing for readability at small font sizes or ensuring pixel-perfect alignment.
+    /// The struct supports merging with other instances to inherit unspecified values, and exposes attached properties
+    /// for use with visuals.</remarks>
     public readonly record struct TextOptions
     {
         /// <summary>
         /// Gets the text rendering mode used to control how text glyphs are rendered.
         /// </summary>
         public TextRenderingMode TextRenderingMode { get; init; }
+
         /// <summary>
         /// Gets the text rendering hinting mode used to optimize the display of text.
         /// </summary>
@@ -29,7 +32,7 @@
         /// This ensures consistent sharpness and reduces blurriness caused by fractional positioning,
         /// particularly at small font sizes or low DPI settings.
         /// </remarks>
-        public bool? BaselinePixelAlign { get; init; }
+        public BaselinePixelAlignment BaselinePixelAlignment { get; init; }
 
         /// <summary>
         /// Merges this instance with <paramref name="other"/> using inheritance semantics: unspecified values on this
@@ -51,18 +54,18 @@
                 textHintingMode = other.TextHintingMode;
             }
 
-            var baselinePixelAlign = BaselinePixelAlign;
+            var baselinePixelAlignment = BaselinePixelAlignment;
 
-            if (baselinePixelAlign == null)
+            if (baselinePixelAlignment == BaselinePixelAlignment.Unspecified)
             {
-                baselinePixelAlign = other.BaselinePixelAlign;
+                baselinePixelAlignment = other.BaselinePixelAlignment;
             }
 
             return new TextOptions
             {
                 TextRenderingMode = textRenderingMode,
                 TextHintingMode = textHintingMode,
-                BaselinePixelAlign = baselinePixelAlign
+                BaselinePixelAlignment = baselinePixelAlignment
             };
         }
 
@@ -115,19 +118,43 @@
         }
 
         /// <summary>
-        /// Gets the BaselinePixelAlign attached property for a visual.
+        /// Gets the BaselinePixelAlignment attached property for a visual.
         /// </summary>
-        public static bool? GetBaselinePixelAlign(Visual visual)
+        public static BaselinePixelAlignment GetBaselinePixelAlignment(Visual visual)
         {
-            return visual.TextOptions.BaselinePixelAlign;
+            return visual.TextOptions.BaselinePixelAlignment;
         }
 
         /// <summary>
-        /// Sets the BaselinePixelAlign attached property for a visual.
+        /// Sets the BaselinePixelAlignment attached property for a visual.
         /// </summary>
-        public static void SetBaselinePixelAlign(Visual visual, bool? value)
+        public static void SetBaselinePixelAlignment(Visual visual, BaselinePixelAlignment value)
         {
-            visual.TextOptions = visual.TextOptions with { BaselinePixelAlign = value };
+            visual.TextOptions = visual.TextOptions with { BaselinePixelAlignment = value };
         }
+    }
+
+    /// <summary>
+    /// Specifies the baseline pixel alignment options for rendering text or graphics.
+    /// </summary>
+    /// <remarks>Use this enumeration to control whether the baseline of rendered content is aligned to the
+    /// pixel grid, which can affect visual crispness and positioning. The value may influence rendering quality,
+    /// especially at small font sizes or when precise alignment is required.</remarks>
+    public enum BaselinePixelAlignment
+    {
+        /// <summary>
+        /// The baseline pixel alignment is unspecified.
+        /// </summary>
+        Unspecified,
+
+        /// <summary>
+        /// The baseline is aligned to the pixel grid.
+        /// </summary>
+        Aligned,
+
+        /// <summary>
+        /// The baseline is not aligned to the pixel grid.
+        /// </summary>
+        Unaligned
     }
 }

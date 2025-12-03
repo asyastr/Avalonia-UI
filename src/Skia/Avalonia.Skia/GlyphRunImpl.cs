@@ -58,11 +58,11 @@ namespace Avalonia.Skia
             // But the bounds depends on the edging: for now, always use SubpixelAntialias so we have consistent values.
             // The resulting bounds may be shifted by 1px on some fonts:
             // "F" text with Inter size 14 has a 0px left bound with SubpixelAntialias but 1px with Antialias.
-            var defaultTextOptions = default(TextOptions) with 
-            { 
-                TextRenderingMode = TextRenderingMode.SubpixelAntialias, 
-                TextHintingMode = TextHintingMode.Strong, 
-                BaselinePixelAlign = true 
+            var defaultTextOptions = default(TextOptions) with
+            {
+                TextRenderingMode = TextRenderingMode.SubpixelAntialias,
+                TextHintingMode = TextHintingMode.Strong,
+                BaselinePixelAlignment = BaselinePixelAlignment.Unaligned
             };
 
             using var font = CreateFont(defaultTextOptions);
@@ -101,14 +101,10 @@ namespace Avalonia.Skia
         {
             if (textOptions.TextRenderingMode == TextRenderingMode.Unspecified)
             {
-                textOptions = textOptions with 
-                { 
-                    TextRenderingMode = renderOptions.EdgeMode == EdgeMode.Aliased ? TextRenderingMode.Alias : TextRenderingMode.SubpixelAntialias 
+                textOptions = textOptions with
+                {
+                    TextRenderingMode = renderOptions.EdgeMode == EdgeMode.Aliased ? TextRenderingMode.Alias : TextRenderingMode.SubpixelAntialias
                 };
-            }
-            if (!textOptions.BaselinePixelAlign.HasValue)
-            {
-                textOptions = textOptions with { BaselinePixelAlign = true };
             }
 
             return _textBlobCache.GetOrAdd(textOptions, k =>
@@ -155,7 +151,7 @@ namespace Avalonia.Skia
             var subpixel = edging != SKFontEdging.Alias;
 
             // Baseline snap defaults to true unless explicitly disabled.
-            var baselineSnap = textOptions.BaselinePixelAlign.GetValueOrDefault(true);
+            var baselineSnap = textOptions.BaselinePixelAlignment != BaselinePixelAlignment.Unaligned;
 
             var font = _glyphTypefaceImpl.CreateSKFont((float)FontRenderingEmSize);
 

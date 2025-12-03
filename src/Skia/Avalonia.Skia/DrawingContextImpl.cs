@@ -620,6 +620,16 @@ namespace Avalonia.Skia
                     }
                 }
 
+                var renderOptions = RenderOptions;
+
+                // If TextRenderingMode is unspecified in TextOptions, use the one from RenderOptions.
+#pragma warning disable CS0618
+                if (effectiveTextOptions.TextRenderingMode == TextRenderingMode.Unspecified && renderOptions.TextRenderingMode != TextRenderingMode.Unspecified)
+                {
+                    effectiveTextOptions = effectiveTextOptions with { TextRenderingMode = renderOptions.TextRenderingMode };
+                }
+#pragma warning restore CS0618
+
                 var textBlob = glyphRunImpl.GetTextBlob(effectiveTextOptions, RenderOptions);
 
                 Canvas.DrawText(textBlob, (float)glyphRun.BaselineOrigin.X,
