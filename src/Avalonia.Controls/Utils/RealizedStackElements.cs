@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using Avalonia.Layout;
 using Avalonia.Utilities;
@@ -12,8 +13,8 @@ namespace Avalonia.Controls.Utils
     internal class RealizedStackElements
     {
         private int _firstIndex;
-        private List<Control?>? _elements;
-        private List<double>? _sizes;
+        private Deque<Control?>? _elements;
+        private Deque<double>? _sizes;
         private double _startU;
         private bool _startUUnstable;
 
@@ -35,18 +36,83 @@ namespace Avalonia.Controls.Utils
         /// <summary>
         /// Gets the elements.
         /// </summary>
-        public IReadOnlyList<Control?> Elements => _elements ??= new List<Control?>();
+        public IReadOnlyList<Control?> Elements => _elements ??= new Deque<Control?>();
 
         /// <summary>
         /// Gets the sizes of the elements on the primary axis.
         /// </summary>
-        public IReadOnlyList<double> SizeU => _sizes ??= new List<double>();
+        public IReadOnlyList<double> SizeU => _sizes ??= new Deque<double>();
 
         /// <summary>
         /// Gets the position of the first element on the primary axis, or NaN if the position is
         /// unstable.
         /// </summary>
         public double StartU => _startUUnstable ? double.NaN : _startU;
+
+        /// <summary>
+        /// Returns a struct enumerable that yields only non-null elements without allocating.
+        /// </summary>
+        public NonNullElementsEnumerable GetNonNullElements() => new NonNullElementsEnumerable(_elements);
+
+        /// <summary>
+        /// A struct enumerable that yields only non-null elements without allocating.
+        /// </summary>
+        public readonly struct NonNullElementsEnumerable : IEnumerable<Control>
+        {
+            private readonly IReadOnlyList<Control?>? _elements;
+
+            public NonNullElementsEnumerable(IReadOnlyList<Control?>? elements)
+            {
+                _elements = elements;
+            }
+
+            public Enumerator GetEnumerator() => new Enumerator(_elements);
+
+            IEnumerator<Control> IEnumerable<Control>.GetEnumerator() => GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            public struct Enumerator : IEnumerator<Control>
+            {
+                private readonly IReadOnlyList<Control?>? _elements;
+                private readonly int _count;
+                private int _index;
+                private Control? _current;
+
+                public Enumerator(IReadOnlyList<Control?>? elements)
+                {
+                    _elements = elements;
+                    _count = elements?.Count ?? 0;
+                    _index = -1;
+                    _current = null;
+                }
+
+                public Control Current => _current!;
+                object IEnumerator.Current => Current;
+
+                public bool MoveNext()
+                {
+                    while (++_index < _count)
+                    {
+                        var element = _elements![_index];
+                        if (element is not null)
+                        {
+                            _current = element;
+                            return true;
+                        }
+                    }
+                    _current = null;
+                    return false;
+                }
+
+                public void Reset()
+                {
+                    _index = -1;
+                    _current = null;
+                }
+
+                public void Dispose() { }
+            }
+        }
 
         /// <summary>
         /// Adds a newly realized element to the collection.
@@ -60,26 +126,26 @@ namespace Avalonia.Controls.Utils
             if (index < 0)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            _elements ??= new List<Control?>();
-            _sizes ??= new List<double>();
+            _elements ??= new Deque<Control?>();
+            _sizes ??= new Deque<double>();
 
             if (Count == 0)
             {
-                _elements.Add(element);
-                _sizes.Add(sizeU);
+                _elements.PushBack(element);
+                _sizes.PushBack(sizeU);
                 _startU = u;
                 _firstIndex = index;
             }
             else if (index == LastIndex + 1)
             {
-                _elements.Add(element);
-                _sizes.Add(sizeU);
+                _elements.PushBack(element);
+                _sizes.PushBack(sizeU);
             }
             else if (index == FirstIndex - 1)
             {
                 --_firstIndex;
-                _elements.Insert(0, element);
-                _sizes.Insert(0, sizeU);
+                _elements.PushFront(element);  // O(1) instead of O(n)
+                _sizes.PushFront(sizeU);       // O(1) instead of O(n)
                 _startU = u;
             }
             else
@@ -343,8 +409,8 @@ namespace Avalonia.Controls.Utils
                     }
                 }
 
-                _elements.RemoveRange(0, endIndex);
-                _sizes!.RemoveRange(0, endIndex);
+                _elements.RemoveFromFront(endIndex);  // O(endIndex) - efficient for deque
+                _sizes!.RemoveFromFront(endIndex);
                 _firstIndex = index;
             }
         }
@@ -377,8 +443,9 @@ namespace Avalonia.Controls.Utils
                     }
                 }
 
-                _elements.RemoveRange(startIndex, _elements.Count - startIndex);
-                _sizes!.RemoveRange(startIndex, _sizes.Count - startIndex);
+                var removeCount = _elements.Count - startIndex;
+                _elements.RemoveFromBack(removeCount);  // O(removeCount) - efficient for deque
+                _sizes!.RemoveFromBack(removeCount);
             }
         }
 

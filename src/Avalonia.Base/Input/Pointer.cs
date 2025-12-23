@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.VisualTree;
 
@@ -31,8 +29,9 @@ namespace Avalonia.Input
         {
             if (control1 is not Visual c1 || control2 is not Visual c2)
                 return null;
-            var seen = new HashSet<IInputElement>(c1.GetSelfAndVisualAncestors().OfType<IInputElement>());
-            return c2.GetSelfAndVisualAncestors().OfType<IInputElement>().FirstOrDefault(seen.Contains);
+            
+            // Use the zero-allocation FindCommonVisualAncestor that leverages cached VisualLevel
+            return c1.FindCommonVisualAncestor(c2) as IInputElement;
         }
 
         protected virtual void PlatformCapture(IInputElement? element)
@@ -63,8 +62,11 @@ namespace Avalonia.Input
             if (oldVisual != null)
             {
                 commonParent = FindCommonParent(control, oldCapture);
-                foreach (var notifyTarget in oldVisual.GetSelfAndVisualAncestors().OfType<IInputElement>())
+                // Walk ancestor chain directly instead of OfType<IInputElement>() LINQ allocation
+                for (Visual? current = oldVisual; current != null; current = current.VisualParent)
                 {
+                    if (current is not IInputElement notifyTarget)
+                        continue;
                     if (notifyTarget == commonParent)
                         break;
                     var args = new PointerCaptureChangingEventArgs(notifyTarget, this, control, source);
@@ -82,12 +84,17 @@ namespace Avalonia.Input
                 PlatformCapture(control);
 
             if (oldVisual != null)
-                foreach (var notifyTarget in oldVisual.GetSelfAndVisualAncestors().OfType<IInputElement>())
+            {
+                // Walk ancestor chain directly instead of OfType<IInputElement>() LINQ allocation
+                for (Visual? current = oldVisual; current != null; current = current.VisualParent)
                 {
+                    if (current is not IInputElement notifyTarget)
+                        continue;
                     if (notifyTarget == commonParent)
                         break;
                     notifyTarget.RaiseEvent(new PointerCaptureLostEventArgs(notifyTarget, this));
                 }
+            }
 
             if (Captured is Visual newVisual)
                 newVisual.DetachedFromVisualTree += OnCaptureDetached;

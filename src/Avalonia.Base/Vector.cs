@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 #if !BUILDTASK
 using Avalonia.Animation.Animators;
 #endif
@@ -33,6 +34,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="x">The X component.</param>
         /// <param name="y">The Y component.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector(double x, double y)
         {
             _x = x;
@@ -53,6 +55,7 @@ namespace Avalonia
         /// Converts the <see cref="Vector"/> to a <see cref="Point"/>.
         /// </summary>
         /// <param name="a">The vector.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static explicit operator Point(Vector a)
         {
             return new Point(a._x, a._y);
@@ -64,6 +67,7 @@ namespace Avalonia
         /// <param name="a">First vector.</param>
         /// <param name="b">Second vector.</param>
         /// <returns>The dot product.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double operator *(Vector a, Vector b)
             => Dot(a, b);
 
@@ -73,6 +77,7 @@ namespace Avalonia
         /// <param name="vector">The vector.</param>
         /// <param name="scale">The scaling factor.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator *(Vector vector, double scale)
             => Multiply(vector, scale);
 
@@ -82,6 +87,7 @@ namespace Avalonia
         /// <param name="vector">The vector.</param>
         /// <param name="scale">The scaling factor.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator *(double scale, Vector vector)
             => Multiply(vector, scale);
 
@@ -91,6 +97,7 @@ namespace Avalonia
         /// <param name="vector">The vector.</param>
         /// <param name="scale">The divisor.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator /(Vector vector, double scale)
             => Divide(vector, scale);
 
@@ -125,6 +132,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="a">The vector.</param>
         /// <returns>The negated vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator -(Vector a)
             => Negate(a);
 
@@ -134,6 +142,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>A vector that is the result of the addition.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator +(Vector a, Vector b)
             => Add(a, b);
 
@@ -143,6 +152,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>A vector that is the result of the subtraction.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector operator -(Vector a, Vector b)
             => Subtract(a, b);
 
@@ -151,6 +161,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(Vector other)
         {
             // ReSharper disable CompareOfFloatsByEqualityOperator
@@ -163,6 +174,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="other">The other vector.</param>
         /// <returns>True if vectors are nearly equal.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool NearlyEquals(Vector other)
         {
             return MathUtilities.AreClose(_x, other._x) && 
@@ -179,11 +191,13 @@ namespace Avalonia
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Vector left, Vector right)
         {
             return left.Equals(right);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Vector left, Vector right)
         {
             return !left.Equals(right);
@@ -203,6 +217,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="x">The X component.</param>
         /// <returns>The new vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector WithX(double x)
         {
             return new Vector(x, _y);
@@ -213,6 +228,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="y">The Y component.</param>
         /// <returns>The new vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector WithY(double y)
         {
             return new Vector(_x, y);
@@ -238,6 +254,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The dot product.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Dot(Vector a, Vector b)
             => a._x * b._x + a._y * b._y;
 
@@ -247,6 +264,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The cross product.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Cross(Vector a, Vector b)
             => a._x * b._y - a._y * b._x;
 
@@ -264,6 +282,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Divide(Vector a, Vector b)
             => new Vector(a._x / b._x, a._y / b._y);
 
@@ -273,6 +292,7 @@ namespace Avalonia
         /// <param name="vector">The vector</param>
         /// <param name="scalar">The scalar value</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Divide(Vector vector, double scalar)
             => new Vector(vector._x / scalar, vector._y / scalar);
 
@@ -282,6 +302,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Multiply(Vector a, Vector b)
             => new Vector(a._x * b._x, a._y * b._y);
 
@@ -291,6 +312,7 @@ namespace Avalonia
         /// <param name="vector">The vector</param>
         /// <param name="scalar">The scalar value</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Multiply(Vector vector, double scalar)
             => new Vector(vector._x * scalar, vector._y * scalar);
 
@@ -300,6 +322,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The summed vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Add(Vector a, Vector b)
             => new Vector(a._x + b._x, a._y + b._y);
 
@@ -309,6 +332,7 @@ namespace Avalonia
         /// <param name="a">The first vector.</param>
         /// <param name="b">The second vector.</param>
         /// <returns>The difference vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Subtract(Vector a, Vector b)
             => new Vector(a._x - b._x, a._y - b._y);
 
@@ -317,6 +341,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="vector">The vector to negate.</param>
         /// <returns>The scaled vector.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector Negate(Vector vector)
             => new Vector(-vector._x, -vector._y);
 

@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 #if !BUILDTASK
 using Avalonia.Animation.Animators;
 #endif
@@ -60,6 +61,7 @@ namespace Avalonia
         /// <param name="x">The X point.</param>
         /// <param name="y">The Y point</param>
         /// <param name="unit">The unit.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public RelativePoint(double x, double y, RelativeUnit unit)
             : this(new Point(x, y), unit)
         {
@@ -70,6 +72,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="point">The point.</param>
         /// <param name="unit">The unit.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public RelativePoint(Point point, RelativeUnit unit)
         {
             _point = point;
@@ -92,6 +95,7 @@ namespace Avalonia
         /// <param name="left">The first point.</param>
         /// <param name="right">The second point.</param>
         /// <returns>True if the points are equal; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(RelativePoint left, RelativePoint right)
         {
             return left.Equals(right);
@@ -103,6 +107,7 @@ namespace Avalonia
         /// <param name="left">The first point.</param>
         /// <param name="right">The second point.</param>
         /// <returns>True if the points are unequal; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(RelativePoint left, RelativePoint right)
         {
             return !left.Equals(right);
@@ -120,6 +125,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="p">The other point.</param>
         /// <returns>True if the objects are equal, otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(RelativePoint p)
         {
             return Unit == p.Unit && Point == p.Point;
@@ -142,6 +148,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="size">The size of the visual.</param>
         /// <returns>The origin point in pixels.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Point ToPixels(Size size)
         {
             return _unit == RelativeUnit.Absolute ?
@@ -155,6 +162,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="rect">The bounding box of the rendering primitive.</param>
         /// <returns>The origin point in pixels.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Point ToPixels(Rect rect)
         {
             return _unit == RelativeUnit.Absolute
@@ -169,30 +177,34 @@ namespace Avalonia
         /// <returns>The parsed <see cref="RelativePoint"/>.</returns>
         public static RelativePoint Parse(string s)
         {
+            const char percentChar = '%';
+            
             using (var tokenizer = new SpanStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid RelativePoint."))
             {
-                var x = tokenizer.ReadString();
-                var y = tokenizer.ReadString();
+                var x = tokenizer.ReadSpan();
+                var y = tokenizer.ReadSpan();
 
                 var unit = RelativeUnit.Absolute;
                 var scale = 1.0;
 
-                if (x.EndsWith('%'))
-                {
-                    if (!y.EndsWith('%'))
-                    {
-                        throw new FormatException("If one coordinate is relative, both must be.");
-                    }
+                var xRelative = x.Length > 0 && x[x.Length - 1] == percentChar;
+                var yRelative = y.Length > 0 && y[y.Length - 1] == percentChar;
 
-                    x = x.TrimEnd('%');
-                    y = y.TrimEnd('%');
+                if (xRelative && yRelative)
+                {
+                    x = x.Slice(0, x.Length - 1);
+                    y = y.Slice(0, y.Length - 1);
                     unit = RelativeUnit.Relative;
                     scale = 0.01;
                 }
+                else if (xRelative || yRelative)
+                {
+                    throw new FormatException("If one coordinate is relative, both must be.");
+                }
 
                 return new RelativePoint(
-                    double.Parse(x, CultureInfo.InvariantCulture) * scale,
-                    double.Parse(y, CultureInfo.InvariantCulture) * scale,
+                    SpanHelpers.ParseDouble(x, CultureInfo.InvariantCulture) * scale,
+                    SpanHelpers.ParseDouble(y, CultureInfo.InvariantCulture) * scale,
                     unit);
             }
         }

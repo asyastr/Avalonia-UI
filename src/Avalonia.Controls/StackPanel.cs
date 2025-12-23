@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -57,6 +56,12 @@ namespace Avalonia.Controls
             RoutedEvent.Register<StackPanel, RoutedEventArgs>(
                 nameof(VerticalSnapPointsChanged),
                 RoutingStrategies.Bubble);
+
+        // Thread-static pooled RoutedEventArgs instances to avoid per-arrange allocations
+        [ThreadStatic]
+        private static RoutedEventArgs? t_horizontalSnapPointsChangedArgs;
+        [ThreadStatic]
+        private static RoutedEventArgs? t_verticalSnapPointsChangedArgs;
 
         /// <summary>
         /// Initializes static members of the <see cref="StackPanel"/> class.
@@ -341,9 +346,31 @@ namespace Avalonia.Controls
                 ArrangeChild(child, rcChild, finalSize, Orientation);
             }
 
-            RaiseEvent(new RoutedEventArgs(Orientation == Orientation.Horizontal ? HorizontalSnapPointsChangedEvent : VerticalSnapPointsChangedEvent));
+            RaiseSnapPointsChangedEvent(Orientation == Orientation.Horizontal);
 
             return finalSize;
+        }
+
+        /// <summary>
+        /// Raises the appropriate snap points changed event using pooled event args to avoid allocations.
+        /// </summary>
+        /// <param name="horizontal">True for horizontal, false for vertical.</param>
+        private void RaiseSnapPointsChangedEvent(bool horizontal)
+        {
+            if (horizontal)
+            {
+                var args = t_horizontalSnapPointsChangedArgs ??= new RoutedEventArgs(HorizontalSnapPointsChangedEvent);
+                args.Source = null;
+                args.Handled = false;
+                RaiseEvent(args);
+            }
+            else
+            {
+                var args = t_verticalSnapPointsChangedArgs ??= new RoutedEventArgs(VerticalSnapPointsChangedEvent);
+                args.Source = null;
+                args.Handled = false;
+                RaiseEvent(args);
+            }
         }
 
         internal virtual void ArrangeChild(
@@ -358,7 +385,8 @@ namespace Avalonia.Controls
         /// <inheritdoc/>
         public IReadOnlyList<double> GetIrregularSnapPoints(Orientation orientation, SnapPointsAlignment snapPointsAlignment)
         {
-            var snapPoints = new List<double>();
+            var visualChildren = VisualChildren;
+            var snapPoints = new List<double>(visualChildren.Count);
 
             switch (orientation)
             {
@@ -367,8 +395,9 @@ namespace Avalonia.Controls
                         throw new InvalidOperationException();
                     if (Orientation == Orientation.Horizontal)
                     {
-                        foreach(var child in VisualChildren)
+                        for (var i = 0; i < visualChildren.Count; i++)
                         {
+                            var child = visualChildren[i];
                             double snapPoint = 0;
 
                             switch (snapPointsAlignment)
@@ -393,8 +422,9 @@ namespace Avalonia.Controls
                         throw new InvalidOperationException();
                     if (Orientation == Orientation.Vertical)
                     {
-                        foreach (var child in VisualChildren)
+                        for (var i = 0; i < visualChildren.Count; i++)
                         {
+                            var child = visualChildren[i];
                             double snapPoint = 0;
 
                             switch (snapPointsAlignment)
@@ -423,12 +453,13 @@ namespace Avalonia.Controls
         public double GetRegularSnapPoints(Orientation orientation, SnapPointsAlignment snapPointsAlignment, out double offset)
         {
             offset = 0f;
-            var firstChild = VisualChildren.FirstOrDefault();
-
-            if(firstChild == null)
+            var visualChildren = VisualChildren;
+            if (visualChildren.Count == 0)
             {
                 return 0;
             }
+            
+            var firstChild = visualChildren[0];
 
             double snapPoint = 0;
 

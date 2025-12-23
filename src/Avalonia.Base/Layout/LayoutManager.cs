@@ -22,8 +22,8 @@ namespace Avalonia.Layout
     {
         private const int MaxPasses = 10;
         private readonly Layoutable _owner;
-        private readonly LayoutQueue<Layoutable> _toMeasure = new LayoutQueue<Layoutable>(v => !v.IsMeasureValid);
-        private readonly LayoutQueue<Layoutable> _toArrange = new LayoutQueue<Layoutable>(v => !v.IsArrangeValid);
+        private readonly LayoutQueue _toMeasure = new LayoutQueue(isMeasureQueue: true);
+        private readonly LayoutQueue _toArrange = new LayoutQueue(isMeasureQueue: false);
         private readonly List<Layoutable> _toArrangeAfterMeasure = new();
         private List<EffectiveViewportChangedListener>? _effectiveViewportChangedListeners;
         private bool _disposed;
@@ -285,7 +285,7 @@ namespace Avalonia.Layout
             if (!control.IsVisible || !control.IsAttachedToVisualTree)
                 return false;
 
-            // Controls closest to the visual root need to be arranged first. We don't try to store
+            // Controls closest to the visual root need to be measured first. We don't try to store
             // ordered invalidation lists, instead we traverse the tree upwards, measuring the
             // controls closest to the root first. This has been shown by benchmarks to be the
             // fastest and most memory-efficient algorithm.
@@ -296,7 +296,7 @@ namespace Avalonia.Layout
             }
 
             // If the control being measured has IsMeasureValid == true here then its measure was
-            // handed by an ancestor and can be ignored. The measure may have also caused the
+            // handled by an ancestor and can be ignored. The measure may have also caused the
             // control to be removed.
             if (!control.IsMeasureValid)
             {
@@ -380,7 +380,9 @@ namespace Avalonia.Layout
 
                         if (viewport != l.Viewport)
                         {
-                            l.Listener.RaiseEffectiveViewportChanged(new EffectiveViewportChangedEventArgs(viewport));
+                            var args = EffectiveViewportChangedEventArgs.GetPooled(viewport);
+                            l.Listener.RaiseEffectiveViewportChanged(args);
+                            args.ReturnToPool();
                             l.Viewport = viewport;
                         }
                     }
@@ -397,43 +399,64 @@ namespace Avalonia.Layout
         private Rect CalculateEffectiveViewport(Visual control)
         {
             var viewport = new Rect(0, 0, double.PositiveInfinity, double.PositiveInfinity);
-            CalculateEffectiveViewport(control, control, ref viewport);
+            CalculateEffectiveViewportIterative(control, ref viewport);
             return viewport;
         }
 
-        private void CalculateEffectiveViewport(Visual target, Visual control, ref Rect viewport)
+        private void CalculateEffectiveViewportIterative(Visual target, ref Rect viewport)
         {
-            // Recurse until the top level control.
-            if (control.VisualParent is object)
+            // Collect ancestors using cached VisualLevel for efficient array sizing
+            var depth = target.VisualLevel + 1;
+            var pool = ArrayPool<Visual>.Shared;
+            var ancestors = pool.Rent(depth);
+            
+            try
             {
-                CalculateEffectiveViewport(target, control.VisualParent, ref viewport);
-            }
-            else
-            {
-                viewport = new Rect(control.Bounds.Size);
-            }
-
-            // Apply the control clip bounds if it's not the target control. We don't apply it to
-            // the target control because it may itself be clipped to bounds and if so the viewport
-            // we calculate would be of no use.
-            if (control != target && control.ClipToBounds)
-            {
-                viewport = control.Bounds.Intersect(viewport);
-            }
-
-            // Translate the viewport into this control's coordinate space.
-            viewport = viewport.Translate(-control.Bounds.Position);
-
-            if (control != target && control.RenderTransform is { } transform)
-            {
-                if (transform.Value.TryInvert(out var invertedMatrix))
+                // Walk up to root, storing ancestors
+                var current = target;
+                var index = depth - 1;
+                while (current != null)
                 {
-                    var origin = control.RenderTransformOrigin.ToPixels(control.Bounds.Size);
-                    var offset = Matrix.CreateTranslation(origin);
-                    viewport = viewport.TransformToAABB(-offset * invertedMatrix * offset);
+                    ancestors[index--] = current;
+                    current = current.VisualParent;
                 }
-                else
-                    viewport = default;
+
+                // Now iterate from root to target (top-down)
+                var root = ancestors[0];
+                viewport = new Rect(root.Bounds.Size);
+
+                for (var i = 1; i < depth; i++)
+                {
+                    var control = ancestors[i];
+                    
+                    // Apply the control clip bounds if it's not the target control
+                    if (control != target && control.ClipToBounds)
+                    {
+                        viewport = control.Bounds.Intersect(viewport);
+                    }
+
+                    // Translate the viewport into this control's coordinate space
+                    viewport = viewport.Translate(-control.Bounds.Position);
+
+                    if (control != target && control.RenderTransform is { } transform)
+                    {
+                        if (transform.Value.TryInvert(out var invertedMatrix))
+                        {
+                            var origin = control.RenderTransformOrigin.ToPixels(control.Bounds.Size);
+                            var offset = Matrix.CreateTranslation(origin);
+                            viewport = viewport.TransformToAABB(-offset * invertedMatrix * offset);
+                        }
+                        else
+                        {
+                            viewport = default;
+                            return;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                pool.Return(ancestors, clearArray: true);
             }
         }
 

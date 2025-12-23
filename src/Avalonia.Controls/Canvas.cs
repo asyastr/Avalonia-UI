@@ -148,9 +148,10 @@ namespace Avalonia.Controls
         {
             availableSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
 
-            foreach (Control child in Children)
+            var children = Children;
+            for (var i = 0; i < children.Count; i++)
             {
-                child.Measure(availableSize);
+                children[i].Measure(availableSize);
             }
 
             return new Size();
@@ -165,7 +166,10 @@ namespace Avalonia.Controls
         {
             double x = 0.0;
             double y = 0.0;
-            double elementLeft = GetLeft(child);
+
+            // Get all values at once to minimize property lookups
+            double elementLeft = child.GetValue(LeftProperty);
+            double elementTop = child.GetValue(TopProperty);
 
             if (!double.IsNaN(elementLeft))
             {
@@ -173,22 +177,22 @@ namespace Avalonia.Controls
             }
             else
             {
-                // Arrange with right.
-                double elementRight = GetRight(child);
+                // Arrange with right - only look up if left wasn't set
+                double elementRight = child.GetValue(RightProperty);
                 if (!double.IsNaN(elementRight))
                 {
                     x = finalSize.Width - child.DesiredSize.Width - elementRight;
                 }
             }
 
-            double elementTop = GetTop(child);
             if (!double.IsNaN(elementTop))
             {
                 y = elementTop;
             }
             else
             {
-                double elementBottom = GetBottom(child);
+                // Arrange with bottom - only look up if top wasn't set
+                double elementBottom = child.GetValue(BottomProperty);
                 if (!double.IsNaN(elementBottom))
                 {
                     y = finalSize.Height - child.DesiredSize.Height - elementBottom;
@@ -205,9 +209,10 @@ namespace Avalonia.Controls
         /// <returns>The space taken.</returns>
         protected override Size ArrangeOverride(Size finalSize)
         {
-            foreach (Control child in Children)
+            var children = Children;
+            for (var i = 0; i < children.Count; i++)
             {
-                ArrangeChild(child, finalSize);
+                ArrangeChild(children[i], finalSize);
             }
 
             return finalSize;

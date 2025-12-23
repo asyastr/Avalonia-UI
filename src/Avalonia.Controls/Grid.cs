@@ -4,6 +4,7 @@
 // Licensed to The Avalonia Project under MIT License, courtesy of The .NET Foundation.
 
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -483,30 +484,43 @@ namespace Avalonia.Controls
                                 bool hasDesiredSizeUChanged = false;
                                 int cnt = 0;
 
-                                // Cache Group2MinWidths & Group3MinHeights
-                                double[] group2MinSizes = CacheMinSizes(extData.CellGroup2, false);
-                                double[] group3MinSizes = CacheMinSizes(extData.CellGroup3, true);
-
-                                MeasureCellsGroup(extData.CellGroup2, false, true);
-
-                                do
+                                // Cache Group2MinWidths & Group3MinHeights using pooled arrays
+                                int group2Length = DefinitionsU.Count;
+                                int group3Length = DefinitionsV.Count;
+                                double[] group2MinSizes = ArrayPool<double>.Shared.Rent(group2Length);
+                                double[] group3MinSizes = ArrayPool<double>.Shared.Rent(group3Length);
+                                
+                                try
                                 {
-                                    if (hasDesiredSizeUChanged)
+                                    CacheMinSizes(group2MinSizes, group2Length, extData.CellGroup2, false);
+                                    CacheMinSizes(group3MinSizes, group3Length, extData.CellGroup3, true);
+
+                                    MeasureCellsGroup(extData.CellGroup2, false, true);
+
+                                    do
                                     {
-                                        // Reset cached Group3Heights
-                                        ApplyCachedMinSizes(group3MinSizes, true);
+                                        if (hasDesiredSizeUChanged)
+                                        {
+                                            // Reset cached Group3Heights
+                                            ApplyCachedMinSizes(group3MinSizes, group3Length, true);
+                                        }
+
+                                        if (HasStarCellsU) { ResolveStar(DefinitionsU, innerAvailableSize.Width); }
+                                        MeasureCellsGroup(extData.CellGroup3, false, false);
+
+                                        // Reset cached Group2Widths
+                                        ApplyCachedMinSizes(group2MinSizes, group2Length, false);
+
+                                        if (HasStarCellsV) { ResolveStar(DefinitionsV, innerAvailableSize.Height); }
+                                        MeasureCellsGroup(extData.CellGroup2, cnt == c_layoutLoopMaxCount, false, out hasDesiredSizeUChanged);
                                     }
-
-                                    if (HasStarCellsU) { ResolveStar(DefinitionsU, innerAvailableSize.Width); }
-                                    MeasureCellsGroup(extData.CellGroup3, false, false);
-
-                                    // Reset cached Group2Widths
-                                    ApplyCachedMinSizes(group2MinSizes, false);
-
-                                    if (HasStarCellsV) { ResolveStar(DefinitionsV, innerAvailableSize.Height); }
-                                    MeasureCellsGroup(extData.CellGroup2, cnt == c_layoutLoopMaxCount, false, out hasDesiredSizeUChanged);
+                                    while (hasDesiredSizeUChanged && ++cnt <= c_layoutLoopMaxCount);
                                 }
-                                while (hasDesiredSizeUChanged && ++cnt <= c_layoutLoopMaxCount);
+                                finally
+                                {
+                                    ArrayPool<double>.Shared.Return(group2MinSizes);
+                                    ArrayPool<double>.Shared.Return(group3MinSizes);
+                                }
                             }
                         }
                     }
@@ -932,11 +946,9 @@ namespace Avalonia.Controls
             }
         }
 
-        private double[] CacheMinSizes(int cellsHead, bool isRows)
+        private void CacheMinSizes(double[] minSizes, int length, int cellsHead, bool isRows)
         {
-            double[] minSizes = isRows ? new double[DefinitionsV.Count] : new double[DefinitionsU.Count];
-
-            for (int j = 0; j < minSizes.Length; j++)
+            for (int j = 0; j < length; j++)
             {
                 minSizes[j] = -1;
             }
@@ -955,13 +967,11 @@ namespace Avalonia.Controls
 
                 i = PrivateCells[i].Next;
             } while (i < PrivateCells.Length);
-
-            return minSizes;
         }
 
-        private void ApplyCachedMinSizes(double[] minSizes, bool isRows)
+        private void ApplyCachedMinSizes(double[] minSizes, int length, bool isRows)
         {
-            for (int i = 0; i < minSizes.Length; i++)
+            for (int i = 0; i < length; i++)
             {
                 if (MathUtilities.GreaterThanOrClose(minSizes[i], 0))
                 {
@@ -1008,8 +1018,11 @@ namespace Avalonia.Controls
             }
 
             var children = Children;
-            Hashtable? spanStore = null;
+            bool hasSpans = false;
             bool ignoreDesiredSizeV = forceInfinityV;
+
+            // Use pooled dictionary for span storage to avoid allocations
+            var spanStore = t_spanDictionary ??= new Dictionary<SpanKey, double>();
 
             int i = cellsHead;
             do
@@ -1029,11 +1042,12 @@ namespace Avalonia.Controls
                     else
                     {
                         RegisterSpan(
-                            ref spanStore,
+                            spanStore,
                             PrivateCells[i].ColumnIndex,
                             PrivateCells[i].ColumnSpan,
                             true,
                             children[i].DesiredSize.Width);
+                        hasSpans = true;
                     }
                 }
 
@@ -1046,23 +1060,24 @@ namespace Avalonia.Controls
                     else
                     {
                         RegisterSpan(
-                            ref spanStore,
+                            spanStore,
                             PrivateCells[i].RowIndex,
                             PrivateCells[i].RowSpan,
                             false,
                             children[i].DesiredSize.Height);
+                        hasSpans = true;
                     }
                 }
 
                 i = PrivateCells[i].Next;
             } while (i < PrivateCells.Length);
 
-            if (spanStore != null)
+            if (hasSpans)
             {
-                foreach (DictionaryEntry e in spanStore)
+                foreach (var e in spanStore)
                 {
-                    SpanKey key = (SpanKey)e.Key;
-                    double desiredSize = (double)e.Value!;
+                    var key = e.Key;
+                    double desiredSize = e.Value;
 
                     EnsureMinSizeInDefinitionRange(
                         key.U ? DefinitionsU : DefinitionsV,
@@ -1071,34 +1086,30 @@ namespace Avalonia.Controls
                         key.U ? ColumnSpacing : RowSpacing,
                         desiredSize);
                 }
+
+                // Clear the pooled dictionary for reuse
+                spanStore.Clear();
             }
         }
 
         /// <summary>
         /// Helper method to register a span information for delayed processing.
         /// </summary>
-        /// <param name="store">Reference to a hashtable object used as storage.</param>
+        /// <param name="store">Dictionary object used as storage.</param>
         /// <param name="start">Span starting index.</param>
         /// <param name="count">Span count.</param>
         /// <param name="u"><c>true</c> if this is a column span. <c>false</c> if this is a row span.</param>
         /// <param name="value">Value to store. If an entry already exists the biggest value is stored.</param>
         private static void RegisterSpan(
-            ref Hashtable? store,
+            Dictionary<SpanKey, double> store,
             int start,
             int count,
             bool u,
             double value)
         {
-            if (store == null)
-            {
-                store = new Hashtable();
-            }
+            var key = new SpanKey(start, count, u);
 
-            SpanKey key = new SpanKey(start, count, u);
-            object? o = store[key];
-
-            if (o == null
-                || value > (double)o)
+            if (!store.TryGetValue(key, out double existing) || value > existing)
             {
                 store[key] = value;
             }
@@ -2652,11 +2663,15 @@ namespace Avalonia.Controls
         private const int c_layoutLoopMaxCount = 5;
 
         private static readonly LocalDataStoreSlot s_tempDefinitionsDataSlot = Thread.AllocateDataSlot();
-        private static readonly IComparer s_spanPreferredDistributionOrderComparer = new SpanPreferredDistributionOrderComparer();
-        private static readonly IComparer s_spanMaxDistributionOrderComparer = new SpanMaxDistributionOrderComparer();
-        private static readonly IComparer s_minRatioComparer = new MinRatioComparer();
-        private static readonly IComparer s_maxRatioComparer = new MaxRatioComparer();
-        private static readonly IComparer s_starWeightComparer = new StarWeightComparer();
+        private static readonly IComparer<DefinitionBase?> s_spanPreferredDistributionOrderComparer = new SpanPreferredDistributionOrderComparer();
+        private static readonly IComparer<DefinitionBase?> s_spanMaxDistributionOrderComparer = new SpanMaxDistributionOrderComparer();
+        private static readonly IComparer<DefinitionBase?> s_minRatioComparer = new MinRatioComparer();
+        private static readonly IComparer<DefinitionBase?> s_maxRatioComparer = new MaxRatioComparer();
+        private static readonly IComparer<DefinitionBase?> s_starWeightComparer = new StarWeightComparer();
+
+        // ThreadStatic pool for span dictionary to avoid allocations during MeasureCellsGroup
+        [ThreadStatic]
+        private static Dictionary<SpanKey, double>? t_spanDictionary;
 
         /// <summary>
         /// Extended data instantiated on demand, when grid handles non-trivial case.
@@ -2838,10 +2853,26 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
-        /// Helper class for representing a key for a span in hashtable.
+        /// Helper struct for representing a key for a span in dictionary.
         /// </summary>
-        private class SpanKey
+        private readonly struct SpanKey : IEquatable<SpanKey>
         {
+            /// <summary>
+            /// Returns start index of the span.
+            /// </summary>
+            internal readonly int Start;
+
+            /// <summary>
+            /// Returns span count.
+            /// </summary>
+            internal readonly int Count;
+
+            /// <summary>
+            /// Returns <c>true</c> if this is a column span.
+            /// <c>false</c> if this is a row span.
+            /// </summary>
+            internal readonly bool U;
+
             /// <summary>
             /// Constructor.
             /// </summary>
@@ -2850,67 +2881,35 @@ namespace Avalonia.Controls
             /// <param name="u"><c>true</c> for columns; <c>false</c> for rows.</param>
             internal SpanKey(int start, int count, bool u)
             {
-                _start = start;
-                _count = count;
-                _u = u;
+                Start = start;
+                Count = count;
+                U = u;
             }
 
             /// <summary>
             /// <see cref="object.GetHashCode"/>
             /// </summary>
-            public override int GetHashCode()
-            {
-                int hash = (_start ^ (_count << 2));
+            public override int GetHashCode() => HashCode.Combine(Start, Count, U);
 
-                if (_u) hash &= 0x7ffffff;
-                else hash |= 0x8000000;
-
-                return (hash);
-            }
+            /// <summary>
+            /// <see cref="IEquatable{T}.Equals(T)"/>
+            /// </summary>
+            public bool Equals(SpanKey other) =>
+                Start == other.Start && Count == other.Count && U == other.U;
 
             /// <summary>
             /// <see cref="object.Equals(object)"/>
             /// </summary>
-            public override bool Equals(object? obj)
-            {
-                SpanKey? sk = obj as SpanKey;
-                return (sk != null
-                        && sk._start == _start
-                        && sk._count == _count
-                        && sk._u == _u);
-            }
-
-            /// <summary>
-            /// Returns start index of the span.
-            /// </summary>
-            internal int Start { get => (_start); }
-
-            /// <summary>
-            /// Returns span count.
-            /// </summary>
-            internal int Count { get => (_count); }
-
-            /// <summary>
-            /// Returns <c>true</c> if this is a column span.
-            /// <c>false</c> if this is a row span.
-            /// </summary>
-            internal bool U { get => (_u); }
-
-            private int _start;
-            private int _count;
-            private bool _u;
+            public override bool Equals(object? obj) => obj is SpanKey other && Equals(other);
         }
 
         /// <summary>
         /// SpanPreferredDistributionOrderComparer.
         /// </summary>
-        private class SpanPreferredDistributionOrderComparer : IComparer
+        private class SpanPreferredDistributionOrderComparer : IComparer<DefinitionBase?>
         {
-            public int Compare(object? x, object? y)
+            public int Compare(DefinitionBase? definitionX, DefinitionBase? definitionY)
             {
-                DefinitionBase? definitionX = x as DefinitionBase;
-                DefinitionBase? definitionY = y as DefinitionBase;
-
                 int result;
 
                 if (!CompareNullRefs(definitionX, definitionY, out result))
@@ -2946,13 +2945,10 @@ namespace Avalonia.Controls
         /// <summary>
         /// SpanMaxDistributionOrderComparer.
         /// </summary>
-        private class SpanMaxDistributionOrderComparer : IComparer
+        private class SpanMaxDistributionOrderComparer : IComparer<DefinitionBase?>
         {
-            public int Compare(object? x, object? y)
+            public int Compare(DefinitionBase? definitionX, DefinitionBase? definitionY)
             {
-                DefinitionBase? definitionX = x as DefinitionBase;
-                DefinitionBase? definitionY = y as DefinitionBase;
-
                 int result;
 
                 if (!CompareNullRefs(definitionX, definitionY, out result))
@@ -2987,8 +2983,9 @@ namespace Avalonia.Controls
 
         /// <summary>
         /// StarDistributionOrderIndexComparer.
+        /// Compares definition indices by their SizeCache (ascending order).
         /// </summary>
-        private class StarDistributionOrderIndexComparer : IComparer
+        private sealed class StarDistributionOrderIndexComparer : IComparer<int>
         {
             private readonly IReadOnlyList<DefinitionBase> definitions;
 
@@ -2997,38 +2994,20 @@ namespace Avalonia.Controls
                 this.definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
-
-                DefinitionBase? definitionX = null;
-                DefinitionBase? definitionY = null;
-
-                if (indexX != null)
-                {
-                    definitionX = definitions[indexX.Value];
-                }
-                if (indexY != null)
-                {
-                    definitionY = definitions[indexY.Value];
-                }
-
-                int result;
-
-                if (!CompareNullRefs(definitionX, definitionY, out result))
-                {
-                    result = definitionX.SizeCache.CompareTo(definitionY.SizeCache);
-                }
-
-                return result;
+                var definitionX = definitions[indexX];
+                var definitionY = definitions[indexY];
+                
+                return definitionX.SizeCache.CompareTo(definitionY.SizeCache);
             }
         }
 
         /// <summary>
-        /// DistributionOrderComparer.
+        /// DistributionOrderIndexComparer.
+        /// Compares definition indices by their SizeCache minus MinSizeForArrange.
         /// </summary>
-        private class DistributionOrderIndexComparer : IComparer
+        private sealed class DistributionOrderIndexComparer : IComparer<int>
         {
             private readonly IReadOnlyList<DefinitionBase> definitions;
 
@@ -3037,40 +3016,22 @@ namespace Avalonia.Controls
                 this.definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
+                var definitionX = definitions[indexX];
+                var definitionY = definitions[indexY];
 
-                DefinitionBase? definitionX = null;
-                DefinitionBase? definitionY = null;
-
-                if (indexX != null)
-                {
-                    definitionX = definitions[indexX.Value];
-                }
-                if (indexY != null)
-                {
-                    definitionY = definitions[indexY.Value];
-                }
-
-                int result;
-
-                if (!CompareNullRefs(definitionX, definitionY, out result))
-                {
-                    double xprime = definitionX.SizeCache - definitionX.MinSizeForArrange;
-                    double yprime = definitionY.SizeCache - definitionY.MinSizeForArrange;
-                    result = xprime.CompareTo(yprime);
-                }
-
-                return result;
+                double xprime = definitionX.SizeCache - definitionX.MinSizeForArrange;
+                double yprime = definitionY.SizeCache - definitionY.MinSizeForArrange;
+                return xprime.CompareTo(yprime);
             }
         }
 
         /// <summary>
         /// RoundingErrorIndexComparer.
+        /// Compares indices by their corresponding rounding errors.
         /// </summary>
-        private class RoundingErrorIndexComparer : IComparer
+        private sealed class RoundingErrorIndexComparer : IComparer<int>
         {
             private readonly double[] errors;
 
@@ -3079,21 +3040,11 @@ namespace Avalonia.Controls
                 this.errors = errors ?? throw new ArgumentNullException(nameof(errors));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
-
-                int result;
-
-                if (!CompareNullRefs(indexX, indexY, out result))
-                {
-                    double errorX = errors[indexX.Value];
-                    double errorY = errors[indexY.Value];
-                    result = errorX.CompareTo(errorY);
-                }
-
-                return result;
+                double errorX = errors[indexX];
+                double errorY = errors[indexY];
+                return errorX.CompareTo(errorY);
             }
         }
 
@@ -3102,13 +3053,10 @@ namespace Avalonia.Controls
         /// Sort by w/min (stored in MeasureSize), descending.
         /// We query the list from the back, i.e. in ascending order of w/min.
         /// </summary>
-        private class MinRatioComparer : IComparer
+        private class MinRatioComparer : IComparer<DefinitionBase?>
         {
-            public int Compare(object? x, object? y)
+            public int Compare(DefinitionBase? definitionX, DefinitionBase? definitionY)
             {
-                DefinitionBase? definitionX = x as DefinitionBase;
-                DefinitionBase? definitionY = y as DefinitionBase;
-
                 int result;
 
                 if (!CompareNullRefs(definitionY, definitionX, out result))
@@ -3125,13 +3073,10 @@ namespace Avalonia.Controls
         /// Sort by w/max (stored in SizeCache), ascending.
         /// We query the list from the back, i.e. in descending order of w/max.
         /// </summary>
-        private class MaxRatioComparer : IComparer
+        private class MaxRatioComparer : IComparer<DefinitionBase?>
         {
-            public int Compare(object? x, object? y)
+            public int Compare(DefinitionBase? definitionX, DefinitionBase? definitionY)
             {
-                DefinitionBase? definitionX = x as DefinitionBase;
-                DefinitionBase? definitionY = y as DefinitionBase;
-
                 int result;
 
                 if (!CompareNullRefs(definitionX, definitionY, out result))
@@ -3147,13 +3092,10 @@ namespace Avalonia.Controls
         /// StarWeightComparer.
         /// Sort by *-weight (stored in MeasureSize), ascending.
         /// </summary>
-        private class StarWeightComparer : IComparer
+        private class StarWeightComparer : IComparer<DefinitionBase?>
         {
-            public int Compare(object? x, object? y)
+            public int Compare(DefinitionBase? definitionX, DefinitionBase? definitionY)
             {
-                DefinitionBase? definitionX = x as DefinitionBase;
-                DefinitionBase? definitionY = y as DefinitionBase;
-
                 int result;
 
                 if (!CompareNullRefs(definitionX, definitionY, out result))
@@ -3167,8 +3109,9 @@ namespace Avalonia.Controls
 
         /// <summary>
         /// MinRatioIndexComparer.
+        /// Compares definition indices by their MeasureSize (descending order).
         /// </summary>
-        private class MinRatioIndexComparer : IComparer
+        private sealed class MinRatioIndexComparer : IComparer<int>
         {
             private readonly IReadOnlyList<DefinitionBase> definitions;
 
@@ -3177,38 +3120,21 @@ namespace Avalonia.Controls
                 this.definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
-
-                DefinitionBase? definitionX = null;
-                DefinitionBase? definitionY = null;
-
-                if (indexX != null)
-                {
-                    definitionX = definitions[indexX.Value];
-                }
-                if (indexY != null)
-                {
-                    definitionY = definitions[indexY.Value];
-                }
-
-                int result;
-
-                if (!CompareNullRefs(definitionY, definitionX, out result))
-                {
-                    result = definitionY.MeasureSize.CompareTo(definitionX.MeasureSize);
-                }
-
-                return result;
+                var definitionX = definitions[indexX];
+                var definitionY = definitions[indexY];
+                
+                // Descending order by MeasureSize
+                return definitionY.MeasureSize.CompareTo(definitionX.MeasureSize);
             }
         }
 
         /// <summary>
         /// MaxRatioIndexComparer.
+        /// Compares definition indices by their SizeCache (ascending order).
         /// </summary>
-        private class MaxRatioIndexComparer : IComparer
+        private sealed class MaxRatioIndexComparer : IComparer<int>
         {
             private readonly IReadOnlyList<DefinitionBase> definitions;
 
@@ -3217,38 +3143,21 @@ namespace Avalonia.Controls
                 this.definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
-
-                DefinitionBase? definitionX = null;
-                DefinitionBase? definitionY = null;
-
-                if (indexX != null)
-                {
-                    definitionX = definitions[indexX.Value];
-                }
-                if (indexY != null)
-                {
-                    definitionY = definitions[indexY.Value];
-                }
-
-                int result;
-
-                if (!CompareNullRefs(definitionX, definitionY, out result))
-                {
-                    result = definitionX.SizeCache.CompareTo(definitionY.SizeCache);
-                }
-
-                return result;
+                var definitionX = definitions[indexX];
+                var definitionY = definitions[indexY];
+                
+                // Ascending order by SizeCache
+                return definitionX.SizeCache.CompareTo(definitionY.SizeCache);
             }
         }
 
         /// <summary>
-        /// MaxRatioIndexComparer.
+        /// StarWeightIndexComparer.
+        /// Compares definition indices by their MeasureSize (ascending order).
         /// </summary>
-        private class StarWeightIndexComparer : IComparer
+        private sealed class StarWeightIndexComparer : IComparer<int>
         {
             private readonly IReadOnlyList<DefinitionBase> definitions;
 
@@ -3257,31 +3166,13 @@ namespace Avalonia.Controls
                 this.definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             }
 
-            public int Compare(object? x, object? y)
+            public int Compare(int indexX, int indexY)
             {
-                int? indexX = x as int?;
-                int? indexY = y as int?;
-
-                DefinitionBase? definitionX = null;
-                DefinitionBase? definitionY = null;
-
-                if (indexX != null)
-                {
-                    definitionX = definitions[indexX.Value];
-                }
-                if (indexY != null)
-                {
-                    definitionY = definitions[indexY.Value];
-                }
-
-                int result;
-
-                if (!CompareNullRefs(definitionX, definitionY, out result))
-                {
-                    result = definitionX.MeasureSize.CompareTo(definitionY.MeasureSize);
-                }
-
-                return result;
+                var definitionX = definitions[indexX];
+                var definitionY = definitions[indexY];
+                
+                // Ascending order by MeasureSize  
+                return definitionX.MeasureSize.CompareTo(definitionY.MeasureSize);
             }
         }
 

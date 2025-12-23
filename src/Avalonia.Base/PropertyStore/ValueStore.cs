@@ -593,7 +593,7 @@ namespace Avalonia.PropertyStore
             var count = children.Count;
             
             var apArgs = new AvaloniaPropertyChangedEventArgs<T>(Owner, property, oldValue, value.Value, BindingPriority.Inherited, true);
-            var incpArgs = new PropertyChangedEventArgs(property.Name);
+            var incpArgs = property.PropertyChangedEventArgs;
 
             for (var i = 0; i < count; ++i)
             {
@@ -619,7 +619,7 @@ namespace Avalonia.PropertyStore
                 var count = children.Count;
 
                 var apArgs = new AvaloniaPropertyChangedEventArgs<T>(Owner, property, oldValue, newValue, BindingPriority.Inherited, true);
-                var incpArgs = new PropertyChangedEventArgs(property.Name);
+                var incpArgs = property.PropertyChangedEventArgs;
 
                 for (var i = 0; i < count; ++i)
                 {
@@ -735,16 +735,36 @@ namespace Avalonia.PropertyStore
         public void RemoveFrames(IReadOnlyList<IStyle> styles)
         {
             var removed = false;
+            var stylesCount = styles.Count;
+            
+            // For larger style lists, build a HashSet for O(1) lookups instead of O(n) Contains
+            HashSet<IStyle>? stylesSet = null;
+            if (stylesCount > 4)
+            {
+                stylesSet = new HashSet<IStyle>(stylesCount);
+                for (var j = 0; j < stylesCount; j++)
+                {
+                    stylesSet.Add(styles[j]);
+                }
+            }
 
             for (var i = _frames.Count - 1; i >= 0; --i)
             {
                 var frame = _frames[i];
 
-                if (frame is StyleInstance style && styles.Contains(style.Source))
+                if (frame is StyleInstance style)
                 {
-                    _frames.RemoveAt(i);
-                    frame.Dispose();
-                    removed = true;
+                    var source = style.Source;
+                    var shouldRemove = stylesSet != null 
+                        ? stylesSet.Contains(source) 
+                        : styles.Contains(source);
+                    
+                    if (shouldRemove)
+                    {
+                        _frames.RemoveAt(i);
+                        frame.Dispose();
+                        removed = true;
+                    }
                 }
             }
 

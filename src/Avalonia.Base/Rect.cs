@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Avalonia.Animation.Animators;
 using Avalonia.Utilities;
 
@@ -38,6 +39,7 @@ namespace Avalonia
         /// <param name="y">The Y position.</param>
         /// <param name="width">The width.</param>
         /// <param name="height">The height.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect(double x, double y, double width, double height)
         {
             _x = x;
@@ -50,6 +52,7 @@ namespace Avalonia
         /// Initializes a new instance of the <see cref="Rect"/> structure.
         /// </summary>
         /// <param name="size">The size of the rectangle.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect(Size size)
         {
             _x = 0;
@@ -63,6 +66,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="position">The position of the rectangle.</param>
         /// <param name="size">The size of the rectangle.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect(Point position, Size size)
         {
             _x = position.X;
@@ -76,6 +80,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="topLeft">The top left position of the rectangle.</param>
         /// <param name="bottomRight">The bottom right position of the rectangle.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect(Point topLeft, Point bottomRight)
         {
             _x = topLeft.X;
@@ -165,6 +170,7 @@ namespace Avalonia
         /// <param name="left">The first rect.</param>
         /// <param name="right">The second rect.</param>
         /// <returns>True if the rects are equal; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Rect left, Rect right)
         {
             return left.Equals(right);
@@ -176,6 +182,7 @@ namespace Avalonia
         /// <param name="left">The first rect.</param>
         /// <param name="right">The second rect.</param>
         /// <returns>True if the rects are unequal; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Rect left, Rect right)
         {
             return !(left == right);
@@ -187,6 +194,7 @@ namespace Avalonia
         /// <param name="rect">The rectangle.</param>
         /// <param name="scale">The vector scale.</param>
         /// <returns>The scaled rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect operator *(Rect rect, Vector scale)
         {
             return new Rect(
@@ -202,6 +210,7 @@ namespace Avalonia
         /// <param name="rect">The rectangle.</param>
         /// <param name="scale">The scale.</param>
         /// <returns>The scaled rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect operator *(Rect rect, double scale)
         {
             return new Rect(
@@ -217,6 +226,7 @@ namespace Avalonia
         /// <param name="rect">The rectangle.</param>
         /// <param name="scale">The vector scale.</param>
         /// <returns>The scaled rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect operator /(Rect rect, Vector scale)
         {
             return new Rect(
@@ -231,6 +241,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="p">The point.</param>
         /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(Point p)
         {
             return p.X >= _x && p.X <= _x + _width &&
@@ -243,6 +254,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="p">The point.</param>
         /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>    
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsExclusive(Point p)
         {
             return p.X >= _x && p.X < _x + _width &&
@@ -254,6 +266,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="r">The rectangle.</param>
         /// <returns>true if the rectangle is fully contained; otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(Rect r)
         {
             return Contains(r.TopLeft) && Contains(r.BottomRight);
@@ -264,6 +277,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="rect">The rectangle to center.</param>
         /// <returns>The centered rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect CenterRect(Rect rect)
         {
             return new Rect(
@@ -278,6 +292,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
         /// <returns>The inflated rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Inflate(double thickness)
         {
             return Inflate(new Thickness(thickness));
@@ -288,6 +303,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
         /// <returns>The inflated rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Inflate(Thickness thickness)
         {
             return new Rect(
@@ -300,6 +316,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
         /// <returns>The deflated rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Deflate(double thickness)
         {
             return Deflate(new Thickness(thickness));
@@ -310,6 +327,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
         /// <returns>The deflated rectangle.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Deflate(Thickness thickness)
         {
             return new Rect(
@@ -322,6 +340,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="other">The other rect to test equality against.</param>
         /// <returns>True if this rect is equal to other; False otherwise.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(Rect other)
         {
             // ReSharper disable CompareOfFloatsByEqualityOperator
@@ -361,6 +380,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="rect">The other rectangle.</param>
         /// <returns>The intersection.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Intersect(Rect rect)
         {
             var newLeft = (rect.X > X) ? rect.X : X;
@@ -385,6 +405,7 @@ namespace Avalonia
         /// <returns>
         /// True if the specified rectangle intersects with this one; otherwise false.
         /// </returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Intersects(Rect rect)
         {
             return (rect.X < Right) && (X < rect.Right) && (rect.Y < Bottom) && (Y < rect.Bottom);
@@ -500,6 +521,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="rect">The other rectangle.</param>
         /// <returns>The union.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect Union(Rect rect)
         {
             if (Width == 0 && Height == 0)
@@ -535,6 +557,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="x">The x position.</param>
         /// <returns>The new <see cref="Rect"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect WithX(double x)
         {
             return new Rect(x, _y, _width, _height);
@@ -545,6 +568,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="y">The y position.</param>
         /// <returns>The new <see cref="Rect"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect WithY(double y)
         {
             return new Rect(_x, y, _width, _height);
@@ -555,6 +579,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="width">The width.</param>
         /// <returns>The new <see cref="Rect"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect WithWidth(double width)
         {
             return new Rect(_x, _y, width, _height);
@@ -565,6 +590,7 @@ namespace Avalonia
         /// </summary>
         /// <param name="height">The height.</param>
         /// <returns>The new <see cref="Rect"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Rect WithHeight(double height)
         {
             return new Rect(_x, _y, _width, height);

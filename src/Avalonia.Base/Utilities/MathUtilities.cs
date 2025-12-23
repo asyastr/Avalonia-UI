@@ -26,6 +26,7 @@ namespace Avalonia.Utilities
         /// </summary> 
         /// <param name="value1"> The first double to compare. </param>
         /// <param name="value2"> The second double to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool AreClose(double value1, double value2)
         {
             //in case they are Infinities (then epsilon check does not work)
@@ -56,6 +57,7 @@ namespace Avalonia.Utilities
         /// </summary> 
         /// <param name="value1"> The first float to compare. </param>
         /// <param name="value2"> The second float to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool AreClose(float value1, float value2)
         {
             //in case they are Infinities (then epsilon check does not work)
@@ -72,6 +74,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first double to compare. </param>
         /// <param name="value2"> The second double to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LessThan(double value1, double value2)
         {
             return (value1 < value2) && !AreClose(value1, value2);
@@ -84,6 +87,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first single float to compare. </param>
         /// <param name="value2"> The second single float to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LessThan(float value1, float value2)
         {
             return (value1 < value2) && !AreClose(value1, value2);
@@ -96,6 +100,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first double to compare. </param>
         /// <param name="value2"> The second double to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GreaterThan(double value1, double value2)
         {
             return (value1 > value2) && !AreClose(value1, value2);
@@ -108,6 +113,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first float to compare. </param>
         /// <param name="value2"> The second float to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GreaterThan(float value1, float value2)
         {
             return (value1 > value2) && !AreClose(value1, value2);
@@ -120,6 +126,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first double to compare. </param>
         /// <param name="value2"> The second double to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LessThanOrClose(double value1, double value2)
         {
             return (value1 < value2) || AreClose(value1, value2);
@@ -132,6 +139,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first float to compare. </param>
         /// <param name="value2"> The second float to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LessThanOrClose(float value1, float value2)
         {
             return (value1 < value2) || AreClose(value1, value2);
@@ -144,6 +152,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first double to compare. </param>
         /// <param name="value2"> The second double to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GreaterThanOrClose(double value1, double value2)
         {
             return (value1 > value2) || AreClose(value1, value2);
@@ -156,6 +165,7 @@ namespace Avalonia.Utilities
         /// </summary>
         /// <param name="value1"> The first float to compare. </param>
         /// <param name="value2"> The second float to compare. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GreaterThanOrClose(float value1, float value2)
         {
             return (value1 > value2) || AreClose(value1, value2);
@@ -166,6 +176,7 @@ namespace Avalonia.Utilities
         /// but this is faster.
         /// </summary>
         /// <param name="value"> The double to compare to 1. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsOne(double value)
         {
             return Math.Abs(value - 1.0) < 10.0 * DoubleEpsilon;
@@ -176,6 +187,7 @@ namespace Avalonia.Utilities
         /// but this is faster.
         /// </summary>
         /// <param name="value"> The float to compare to 1. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsOne(float value)
         {
             return Math.Abs(value - 1.0f) < 10.0f * FloatEpsilon;
@@ -186,6 +198,7 @@ namespace Avalonia.Utilities
         /// but this is faster.
         /// </summary>
         /// <param name="value"> The double to compare to 0. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsZero(double value)
         {
             return Math.Abs(value) < 10.0 * DoubleEpsilon;
@@ -196,6 +209,7 @@ namespace Avalonia.Utilities
         /// but this is faster.
         /// </summary>
         /// <param name="value"> The float to compare to 0. </param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsZero(float value)
         {
             return Math.Abs(value) < 10.0f * FloatEpsilon;
@@ -237,6 +251,7 @@ namespace Avalonia.Utilities
         /// <param name="min">The minimum value.</param>
         /// <param name="max">The maximum value.</param>
         /// <returns>The clamped value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static decimal Clamp(decimal val, decimal min, decimal max)
         {
             if (min > max)
@@ -265,6 +280,7 @@ namespace Avalonia.Utilities
         /// <param name="min">The minimum value.</param>
         /// <param name="max">The maximum value.</param>
         /// <returns>The clamped value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float Clamp(float value, float min, float max)
         {
             var amax = Math.Max(min, max);
@@ -279,6 +295,7 @@ namespace Avalonia.Utilities
         /// <param name="min">The minimum value.</param>
         /// <param name="max">The maximum value.</param>
         /// <returns>The clamped value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Clamp(int val, int min, int max)
         {
             if (min > max)
